@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, memo } from "react";
 import { db } from "../../config/firebaseConfig";
 import { onSnapshot, collection, query } from "firebase/firestore";
 import { doDeleteLecturer } from "../../controller/firestoreController";
@@ -7,7 +7,7 @@ import ModifyLecturerForm from "./modifyForm/modifyLecturerForm";
 import { AiOutlineUserDelete } from "react-icons/ai";
 import { TbUserEdit } from "react-icons/tb";
 
-export default function ManageLecturerPage() {
+export default memo(function ManageLecturerPage() {
   const [lecturers, setLecturers] = useState([]);
   const [authLec, setAuthLec] = useState({
     email: "",
@@ -47,7 +47,7 @@ export default function ManageLecturerPage() {
     setIsConfirmModalOpen(true);
   };
 
-  const confirmDeleteLecturer = async () => {
+  const confirmDeleteLecturer = useCallback(async () => {
     try {
       await doDeleteLecturer(lecturerToDelete);
       const result = await deleteLecturer(lecturerToDelete);
@@ -60,70 +60,73 @@ export default function ManageLecturerPage() {
       setIsConfirmModalOpen(false);
       setLecturerToDelete(null);
     }
-  };
+  }, [lecturerToDelete]);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      if (
-        !authLec.email ||
-        !authLec.password ||
-        !lecInfo.name ||
-        !lecInfo.address ||
-        !lecInfo.phoneNumber
-      ) {
-        alert("Please fill in all fields");
+  const handleSubmit = useCallback(
+    async (e) => {
+      e.preventDefault();
+      try {
+        if (
+          !authLec.email ||
+          !authLec.password ||
+          !lecInfo.name ||
+          !lecInfo.address ||
+          !lecInfo.phoneNumber
+        ) {
+          alert("Please fill in all fields");
+          setAuthLec({ email: "", password: "", role: "lecturer" });
+          setLecInfo({ name: "", address: "", phoneNumber: "" });
+          return;
+        }
+        if (authLec.password.length < 6) {
+          alert("Password must be at least 6 characters");
+          setAuthLec({ ...authLec, password: "" });
+          return;
+        }
+        if (lecInfo.phoneNumber.length < 10) {
+          alert("Phone number must be at least 10 characters");
+          setLecInfo({ ...lecInfo, phoneNumber: "" });
+          return;
+        }
+        if (lecInfo.phoneNumber.length > 15) {
+          alert("Phone number must be at most 15 characters");
+          setLecInfo({ ...lecInfo, phoneNumber: "" });
+          return;
+        }
+        if (authLec.email.length < 6) {
+          alert("Email must be at least 6 characters");
+          setAuthLec({ ...authLec, email: "" });
+          return;
+        }
+        if (authLec.email.length > 50) {
+          alert("Email must be at most 50 characters");
+          setAuthLec({ ...authLec, email: "" });
+          return;
+        }
+        if (lecInfo.name.length < 3) {
+          alert("Name must be at least 3 characters");
+          setLecInfo({ ...lecInfo, name: "" });
+          return;
+        }
+        const result = await addLecturer({
+          email: authLec.email,
+          password: authLec.password,
+          role: authLec.role,
+          name: lecInfo.name,
+          address: lecInfo.address,
+          phoneNumber: lecInfo.phoneNumber,
+        });
+        console.log(result);
+        alert("Lecturer added successfully");
         setAuthLec({ email: "", password: "", role: "lecturer" });
         setLecInfo({ name: "", address: "", phoneNumber: "" });
-        return;
+      } catch (error) {
+        console.log(error);
+        alert("Failed to add lecturer");
       }
-      if (authLec.password.length < 6) {
-        alert("Password must be at least 6 characters");
-        setAuthLec({ ...authLec, password: "" });
-        return;
-      }
-      if (lecInfo.phoneNumber.length < 10) {
-        alert("Phone number must be at least 10 characters");
-        setLecInfo({ ...lecInfo, phoneNumber: "" });
-        return;
-      }
-      if (lecInfo.phoneNumber.length > 15) {
-        alert("Phone number must be at most 15 characters");
-        setLecInfo({ ...lecInfo, phoneNumber: "" });
-        return;
-      }
-      if (authLec.email.length < 6) {
-        alert("Email must be at least 6 characters");
-        setAuthLec({ ...authLec, email: "" });
-        return;
-      }
-      if (authLec.email.length > 50) {
-        alert("Email must be at most 50 characters");
-        setAuthLec({ ...authLec, email: "" });
-        return;
-      }
-      if (lecInfo.name.length < 3) {
-        alert("Name must be at least 3 characters");
-        setLecInfo({ ...lecInfo, name: "" });
-        return;
-      }
-      const result = await addLecturer({
-        email: authLec.email,
-        password: authLec.password,
-        role: authLec.role,
-        name: lecInfo.name,
-        address: lecInfo.address,
-        phoneNumber: lecInfo.phoneNumber,
-      });
-      console.log(result);
-      alert("Lecturer added successfully");
-      setAuthLec({ email: "", password: "", role: "lecturer" });
-      setLecInfo({ name: "", address: "", phoneNumber: "" });
-    } catch (error) {
-      console.log(error);
-      alert("Failed to add lecturer");
-    }
-  };
+    },
+    [authLec, lecInfo]
+  );
 
   useEffect(() => {
     const queryLecturer = query(collection(db, "lecturer"));
@@ -320,4 +323,4 @@ export default function ManageLecturerPage() {
       )}
     </div>
   );
-}
+});

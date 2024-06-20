@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, memo } from "react";
 import { useParams } from "react-router-dom";
 import { db } from "../../config/firebaseConfig";
 import { onSnapshot, collection, where, query, doc } from "firebase/firestore";
@@ -11,7 +11,7 @@ import {
 import DetailListStudentCourse from "./detailListStudentCourse";
 import { FiEdit } from "react-icons/fi";
 
-export default function DetailCoursePage() {
+export default memo(function DetailCoursePage() {
   const { courseCode } = useParams();
   const [course, setCourse] = useState({});
   const [info, setInFo] = useState({ title: "", content: "" });
@@ -24,30 +24,36 @@ export default function DetailCoursePage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [infoToDelete, setInfoToDelete] = useState(null);
 
-  const handleInfoSubmit = async (e) => {
-    e.preventDefault();
-    console.log(info);
-    try {
-      await doAddCourseInfo(courseCode, info);
-      console.log("Add info success");
-      setShowAddInfoModal(false);
-    } catch (error) {
-      console.log(error);
-    }
-  };
+  const handleInfoSubmit = useCallback(
+    async (e) => {
+      e.preventDefault();
+      console.log(info);
+      try {
+        await doAddCourseInfo(courseCode, info);
+        console.log("Add info success");
+        setShowAddInfoModal(false);
+      } catch (error) {
+        console.log(error);
+      }
+    },
+    [info, courseCode]
+  );
 
-  const handleOnlineLinkSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      await doUpdateCourseOnlineLink(courseCode, onlineURL);
-      console.log("Add online link success");
-      setShowAddLinkModal(false);
-    } catch (error) {
-      console.log(error);
-    }
-  };
+  const handleOnlineLinkSubmit = useCallback(
+    async (e) => {
+      e.preventDefault();
+      try {
+        await doUpdateCourseOnlineLink(courseCode, onlineURL);
+        console.log("Add online link success");
+        setShowAddLinkModal(false);
+      } catch (error) {
+        console.log(error);
+      }
+    },
+    [courseCode, onlineURL]
+  );
 
-  const handleDeleteInfo = async () => {
+  const handleDeleteInfo = useCallback(async () => {
     try {
       await doDeleteDocument("info", infoToDelete);
       console.log("Delete info success");
@@ -56,11 +62,13 @@ export default function DetailCoursePage() {
     } catch (error) {
       console.log(error);
     }
-  };
-  const handleAddLinkOnline = (e) => {
+  }, [infoToDelete]);
+
+  const handleAddLinkOnline = useCallback((e) => {
     e.preventDefault();
     setShowAddLinkModal(true);
-  };
+  }, []);
+
   useEffect(() => {
     const queryCourse = query(doc(db, "course", courseCode));
 
@@ -372,4 +380,4 @@ export default function DetailCoursePage() {
       )}
     </div>
   );
-}
+});

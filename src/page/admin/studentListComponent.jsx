@@ -1,15 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, memo } from "react";
 import PropTypes from "prop-types";
 import { doDeleteStudent } from "../../controller/firestoreController";
 import axiosInstance from "../../controller/axiosInstance";
 import ModifyStudentForm from "./modifyForm/modifyStudentForm";
 
-StudentListComponent.propTypes = {
-  students: PropTypes.array,
-  parents: PropTypes.array,
-};
-
-export default function StudentListComponent({ students, parents }) {
+const StudentListComponent = memo(function StudentListComponent({
+  students,
+  parents,
+}) {
   const [studentList, setStudentList] = useState([]);
   const [parentList, setParentList] = useState([]);
 
@@ -30,7 +28,7 @@ export default function StudentListComponent({ students, parents }) {
     setIsModifyFormOpen(true);
   };
 
-  const handleDeleteStudent = async () => {
+  const handleDeleteStudent = useCallback(async () => {
     try {
       await doDeleteStudent(deleteStudentId, deleteParentId);
       const result = await deleteStudent(deleteStudentId);
@@ -41,14 +39,14 @@ export default function StudentListComponent({ students, parents }) {
       console.log(error);
       alert("Failed to delete student");
     }
-  };
+  }, [deleteStudentId, deleteParentId]);
 
-  const openDeleteConfirm = (e, id, parentID) => {
+  const openDeleteConfirm = useCallback((e, id, parentID) => {
     e.preventDefault();
     setDeleteStudentId(id);
     setDeleteParentId(parentID);
     setIsDeleteConfirmOpen(true);
-  };
+  }, []);
 
   const closeDeleteConfirm = () => {
     setIsDeleteConfirmOpen(false);
@@ -147,4 +145,11 @@ export default function StudentListComponent({ students, parents }) {
       )}
     </div>
   );
-}
+});
+
+StudentListComponent.propTypes = {
+  students: PropTypes.array,
+  parents: PropTypes.array,
+};
+
+export default StudentListComponent;

@@ -1,26 +1,26 @@
 import PropTypes from "prop-types";
-import { useEffect, useState } from "react";
+import { useEffect, useState, memo, useCallback } from "react";
 import { doGetStudentInfoLecturer } from "../../controller/firestoreController";
 
-DetailListStudentCourse.propTypes = {
-  studentList: PropTypes.array.isRequired,
-  courseCode: PropTypes.string.isRequired,
-};
-
-export default function DetailListStudentCourse({ studentList, courseCode }) {
+const DetailListStudentCourse = memo(function DetailListStudentCourse({
+  studentList,
+  courseCode,
+}) {
   const [studentInfo, setStudentInfo] = useState([]);
-  useEffect(() => {
-    const studentName = async () => {
-      console.log("studentList: ", studentList);
-      const studentListName = await doGetStudentInfoLecturer(
-        studentList,
-        courseCode
-      );
-      console.log(studentListName);
-      setStudentInfo(studentListName);
-    };
-    studentName();
+
+  const studentName = useCallback(async () => {
+    console.log("studentList: ", studentList);
+    const studentListName = await doGetStudentInfoLecturer(
+      studentList,
+      courseCode
+    );
+    // console.log(studentListName);
+    setStudentInfo(studentListName);
   }, [studentList, courseCode]);
+
+  useEffect(() => {
+    studentName();
+  }, [studentName]);
 
   return (
     <div className="container mx-auto px-4">
@@ -55,4 +55,11 @@ export default function DetailListStudentCourse({ studentList, courseCode }) {
       )}
     </div>
   );
-}
+});
+
+DetailListStudentCourse.propTypes = {
+  studentList: PropTypes.array.isRequired,
+  courseCode: PropTypes.string.isRequired,
+};
+
+export default DetailListStudentCourse;

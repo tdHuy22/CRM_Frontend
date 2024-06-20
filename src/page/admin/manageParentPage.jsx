@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, memo } from "react";
 import axiosInstance from "../../controller/axiosInstance";
 import { db } from "../../config/firebaseConfig";
 import { onSnapshot, collection, query } from "firebase/firestore";
@@ -10,7 +10,7 @@ import ModifyParentForm from "./modifyForm/modifyParentForm";
 import { AiOutlineUserDelete } from "react-icons/ai";
 import { TbUserEdit } from "react-icons/tb";
 
-export default function ManageParentPage() {
+export default memo(function ManageParentPage() {
   const [parents, setParents] = useState([]);
   const [authPar, setAuthPar] = useState({
     email: "",
@@ -50,7 +50,7 @@ export default function ManageParentPage() {
     setIsConfirmModalOpen(true);
   };
 
-  const confirmDeleteParent = async () => {
+  const confirmDeleteParent = useCallback(async () => {
     try {
       await doDeleteDocument("parent", parentToDelete);
       await doDeleteDocument("authentication", parentToDelete);
@@ -65,83 +65,86 @@ export default function ManageParentPage() {
       setIsConfirmModalOpen(false);
       setParentToDelete(null);
     }
-  };
+  }, [parentToDelete]);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      if (
-        !authPar.email ||
-        !authPar.password ||
-        !parInfo.name ||
-        !parInfo.address ||
-        !parInfo.phoneNumber
-      ) {
-        alert("Please fill in all fields");
+  const handleSubmit = useCallback(
+    async (e) => {
+      e.preventDefault();
+      try {
+        if (
+          !authPar.email ||
+          !authPar.password ||
+          !parInfo.name ||
+          !parInfo.address ||
+          !parInfo.phoneNumber
+        ) {
+          alert("Please fill in all fields");
+          setAuthPar({ email: "", password: "", role: "parent" });
+          setParInfo({ name: "", address: "", phoneNumber: "" });
+          return;
+        }
+        if (authPar.password.length < 6) {
+          alert("Password must be at least 6 characters");
+          setAuthPar({ ...authPar, password: "" });
+          return;
+        }
+        if (parInfo.phoneNumber.length < 10) {
+          alert("Phone number must be at least 10 characters");
+          setParInfo({ ...parInfo, phoneNumber: "" });
+          return;
+        }
+        const isPhoneNumberValid = /^\d+$/.test(parInfo.phoneNumber);
+        if (!isPhoneNumberValid) {
+          alert("Phone number must be numeric");
+          setParInfo({ ...parInfo, phoneNumber: "" });
+          return;
+        }
+        if (parInfo.name.length < 3) {
+          alert("Name must be at least 3 characters");
+          setParInfo({ ...parInfo, name: "" });
+          return;
+        }
+        if (parInfo.phoneNumber.length > 15) {
+          alert("Phone number must be at most 15 characters");
+          setParInfo({ ...parInfo, phoneNumber: "" });
+          return;
+        }
+        if (authPar.email.length < 6) {
+          alert("Email must be at least 6 characters");
+          setAuthPar({ ...authPar, email: "" });
+          return;
+        }
+        if (authPar.email.length > 50) {
+          alert("Email must be at most 50 characters");
+          setAuthPar({ ...authPar, email: "" });
+          return;
+        }
+        if (parInfo.name.length > 50) {
+          alert("Name must be at most 50 characters");
+          setParInfo({ ...parInfo, name: "" });
+          return;
+        }
+
+        const result = await addParent({
+          email: authPar.email,
+          password: authPar.password,
+          role: authPar.role,
+          name: parInfo.name,
+          address: parInfo.address,
+          phoneNumber: parInfo.phoneNumber,
+        });
+        console.log(result);
+        alert("Parent added successfully");
         setAuthPar({ email: "", password: "", role: "parent" });
         setParInfo({ name: "", address: "", phoneNumber: "" });
-        return;
+        setIsConfirmModalOpen(false);
+      } catch (error) {
+        console.log(error);
+        alert("Failed to add parent");
       }
-      if (authPar.password.length < 6) {
-        alert("Password must be at least 6 characters");
-        setAuthPar({ ...authPar, password: "" });
-        return;
-      }
-      if (parInfo.phoneNumber.length < 10) {
-        alert("Phone number must be at least 10 characters");
-        setParInfo({ ...parInfo, phoneNumber: "" });
-        return;
-      }
-      const isPhoneNumberValid = /^\d+$/.test(parInfo.phoneNumber);
-      if (!isPhoneNumberValid) {
-        alert("Phone number must be numeric");
-        setParInfo({ ...parInfo, phoneNumber: "" });
-        return;
-      }
-      if (parInfo.name.length < 3) {
-        alert("Name must be at least 3 characters");
-        setParInfo({ ...parInfo, name: "" });
-        return;
-      }
-      if (parInfo.phoneNumber.length > 15) {
-        alert("Phone number must be at most 15 characters");
-        setParInfo({ ...parInfo, phoneNumber: "" });
-        return;
-      }
-      if (authPar.email.length < 6) {
-        alert("Email must be at least 6 characters");
-        setAuthPar({ ...authPar, email: "" });
-        return;
-      }
-      if (authPar.email.length > 50) {
-        alert("Email must be at most 50 characters");
-        setAuthPar({ ...authPar, email: "" });
-        return;
-      }
-      if (parInfo.name.length > 50) {
-        alert("Name must be at most 50 characters");
-        setParInfo({ ...parInfo, name: "" });
-        return;
-      }
-
-      const result = await addParent({
-        email: authPar.email,
-        password: authPar.password,
-        role: authPar.role,
-        name: parInfo.name,
-        address: parInfo.address,
-        phoneNumber: parInfo.phoneNumber,
-      });
-      console.log(result);
-      alert("Parent added successfully");
-      setAuthPar({ email: "", password: "", role: "parent" });
-      setParInfo({ name: "", address: "", phoneNumber: "" });
-      setIsConfirmModalOpen(false);
-    } catch (error) {
-      console.log(error);
-      alert("Failed to add parent");
-    }
-  };
+    },
+    [authPar, parInfo]
+  );
 
   useEffect(() => {
     const queryParent = query(collection(db, "parent"));
@@ -347,4 +350,4 @@ export default function ManageParentPage() {
       )}
     </div>
   );
-}
+});

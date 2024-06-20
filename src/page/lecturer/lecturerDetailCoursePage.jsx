@@ -192,6 +192,25 @@ export default memo(function LecturerDetailCoursePage() {
     setShowModal(true);
   }, []);
 
+  const GetScheduleList = useCallback(async () => {
+    const scheduleList = await doGetScheduleListFromCourseID(courseCode);
+    const scheduleDate = scheduleList.map((schedule) => schedule.date);
+    setScheduleDate(scheduleDate);
+  }, [courseCode]);
+
+  const getClassSchedule = useCallback(async () => {
+    try {
+      const total = await getStudentCount(courseCode);
+      const attended = await getAttendedStudentCountToday(
+        courseCode,
+        currentDay
+      );
+      setAttendanceStatsOfClass({ attended, total });
+    } catch (error) {
+      console.error("Failed to get class schedule: ", error);
+    }
+  }, [courseCode, currentDay]);
+
   useEffect(() => {
     const queryCourse = query(doc(db, "course", courseCode));
 
@@ -217,25 +236,6 @@ export default memo(function LecturerDetailCoursePage() {
       }
     );
 
-    const GetScheduleList = async () => {
-      const scheduleList = await doGetScheduleListFromCourseID(courseCode);
-      const scheduleDate = scheduleList.map((schedule) => schedule.date);
-      setScheduleDate(scheduleDate);
-    };
-
-    const getClassSchedule = async () => {
-      try {
-        const total = await getStudentCount(courseCode);
-        const attended = await getAttendedStudentCountToday(
-          courseCode,
-          currentDay
-        );
-        setAttendanceStatsOfClass({ attended, total });
-      } catch (error) {
-        console.error("Failed to get class schedule: ", error);
-      }
-    };
-
     GetScheduleList();
 
     getClassSchedule();
@@ -244,7 +244,7 @@ export default memo(function LecturerDetailCoursePage() {
       unsubscribeCourse();
       unsubscribeCourseStudent();
     };
-  }, [courseCode, currentDay]);
+  }, [courseCode, currentDay, GetScheduleList, getClassSchedule]);
 
   const values = {
     studentList,

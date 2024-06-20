@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, memo, useCallback } from "react";
 import axiosInstance from "../../controller/axiosInstance";
 import { db } from "../../config/firebaseConfig";
 import { onSnapshot, collection, query } from "firebase/firestore";
 import StudentListComponent from "./studentListComponent";
 
-export default function ManageStudentPage() {
+export default memo(function ManageStudentPage() {
   const [students, setStudents] = useState([]);
   const [parents, setParents] = useState([]);
   const [isAddStudentModalOpen, setIsAddStudentModalOpen] = useState(false);
@@ -27,19 +27,54 @@ export default function ManageStudentPage() {
     return response;
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      if (
-        authStu.email === "" ||
-        authStu.password === "" ||
-        stuInfo.name === "" ||
-        stuInfo.parentID === "" ||
-        stuInfo.address === "" ||
-        stuInfo.phoneNumber === "" ||
-        stuInfo.RFID === ""
-      ) {
-        alert("Please fill in all fields");
+  const handleSubmit = useCallback(
+    async (e) => {
+      e.preventDefault();
+      try {
+        if (
+          authStu.email === "" ||
+          authStu.password === "" ||
+          stuInfo.name === "" ||
+          stuInfo.parentID === "" ||
+          stuInfo.address === "" ||
+          stuInfo.phoneNumber === "" ||
+          stuInfo.RFID === ""
+        ) {
+          alert("Please fill in all fields");
+          setAuthStu({ email: "", password: "", role: "student" });
+          setStuInfo({
+            name: "",
+            parentID: "",
+            address: "",
+            phoneNumber: "",
+            RFID: "",
+          });
+          return;
+        }
+        if (students.find((student) => student.email === authStu.email)) {
+          alert("Student already exists");
+          return;
+        }
+        if (stuInfo.phoneNumber.length !== 10) {
+          alert("Phone number must be 10 digits");
+          return;
+        }
+        if (isNaN(stuInfo.phoneNumber)) {
+          alert("Phone number must be a number");
+          return;
+        }
+        const result = await addStudent({
+          email: authStu.email,
+          password: authStu.password,
+          role: authStu.role,
+          name: stuInfo.name,
+          parentID: stuInfo.parentID,
+          address: stuInfo.address,
+          phoneNumber: stuInfo.phoneNumber,
+          RFID: stuInfo.RFID,
+        });
+        console.log(result);
+        alert("Student added successfully");
         setAuthStu({ email: "", password: "", role: "student" });
         setStuInfo({
           name: "",
@@ -48,46 +83,14 @@ export default function ManageStudentPage() {
           phoneNumber: "",
           RFID: "",
         });
-        return;
+        setIsAddStudentModalOpen(false);
+      } catch (error) {
+        console.log(error);
+        alert("Failed to add student");
       }
-      if (students.find((student) => student.email === authStu.email)) {
-        alert("Student already exists");
-        return;
-      }
-      if (stuInfo.phoneNumber.length !== 10) {
-        alert("Phone number must be 10 digits");
-        return;
-      }
-      if (isNaN(stuInfo.phoneNumber)) {
-        alert("Phone number must be a number");
-        return;
-      }
-      const result = await addStudent({
-        email: authStu.email,
-        password: authStu.password,
-        role: authStu.role,
-        name: stuInfo.name,
-        parentID: stuInfo.parentID,
-        address: stuInfo.address,
-        phoneNumber: stuInfo.phoneNumber,
-        RFID: stuInfo.RFID,
-      });
-      console.log(result);
-      alert("Student added successfully");
-      setAuthStu({ email: "", password: "", role: "student" });
-      setStuInfo({
-        name: "",
-        parentID: "",
-        address: "",
-        phoneNumber: "",
-        RFID: "",
-      });
-      setIsAddStudentModalOpen(false);
-    } catch (error) {
-      console.log(error);
-      alert("Failed to add student");
-    }
-  };
+    },
+    [authStu, stuInfo, students]
+  );
 
   useEffect(() => {
     const queryStudent = query(collection(db, "student"));
@@ -261,4 +264,4 @@ export default function ManageStudentPage() {
       )}
     </div>
   );
-}
+});

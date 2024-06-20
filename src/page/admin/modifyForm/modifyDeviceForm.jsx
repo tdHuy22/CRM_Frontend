@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, memo } from "react";
 import PropTypes from "prop-types";
 import {
   doGetDeviceData,
@@ -7,12 +7,10 @@ import {
 import { db } from "../../../config/firebaseConfig";
 import { collection, query, onSnapshot } from "firebase/firestore";
 
-ModifyDeviceModal.propTypes = {
-  deviceId: PropTypes.string.isRequired,
-  closeModal: PropTypes.func.isRequired,
-};
-
-function ModifyDeviceModal({ deviceId, closeModal }) {
+const ModifyDeviceModal = memo(function ModifyDeviceModal({
+  deviceId,
+  closeModal,
+}) {
   const [deviceData, setDeviceData] = useState({
     id: "",
     roomID: "",
@@ -46,63 +44,22 @@ function ModifyDeviceModal({ deviceId, closeModal }) {
     });
   };
 
-  const handleSubmit = (event) => {
-    event.preventDefault();
-    if (deviceData.roomID === "") {
-      alert("Please select a room");
-      return;
-    }
-    // Replace this with your actual update logic
-    updateDeviceData(deviceId, deviceData).then(() => {
-      closeModal();
-    });
-  };
+  const handleSubmit = useCallback(
+    (event) => {
+      event.preventDefault();
+      if (deviceData.roomID === "") {
+        alert("Please select a room");
+        return;
+      }
+      // Replace this with your actual update logic
+      updateDeviceData(deviceId, deviceData).then(() => {
+        closeModal();
+      });
+    },
+    [deviceData, deviceId, closeModal]
+  );
 
   return (
-    // <form onSubmit={handleSubmit}>
-    //   <label>
-    //     ID:
-    //     <input
-    //       type="text"
-    //       name="id"
-    //       value={deviceData.id}
-    //       onChange={handleInputChange}
-    //       disabled
-    //     />
-    //   </label>
-    //   <label>
-    //     Room ID:
-    //     <select
-    //       name="roomID"
-    //       value={deviceData.roomID}
-    //       onChange={handleInputChange}
-    //     >
-    //       <option value="">Select Room</option>
-    //       <option value="Online">Online</option>
-    //       {roomList.map((roomID) => {
-    //         return (
-    //           <option key={roomID} value={roomID}>
-    //             {roomID}
-    //           </option>
-    //         );
-    //       })}
-    //     </select>
-    //   </label>
-    //   <label>
-    //     Status:
-    //     <input
-    //       type="text"
-    //       name="status"
-    //       value={deviceData.status}
-    //       onChange={handleInputChange}
-    //       disabled
-    //     />
-    //   </label>
-    //   <button type="submit">Submit</button>
-    //   <button type="button" onClick={closeForm}>
-    //     Cancel
-    //   </button>
-    // </form>
     <div className="bg-white p-8 rounded shadow-md">
       <h2 className="text-xl font-bold mb-4">Modify Device</h2>
       <form onSubmit={handleSubmit}>
@@ -163,6 +120,11 @@ function ModifyDeviceModal({ deviceId, closeModal }) {
       </form>
     </div>
   );
-}
+});
+
+ModifyDeviceModal.propTypes = {
+  deviceId: PropTypes.string.isRequired,
+  closeModal: PropTypes.func.isRequired,
+};
 
 export default ModifyDeviceModal;

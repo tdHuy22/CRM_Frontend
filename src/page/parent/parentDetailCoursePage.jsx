@@ -145,7 +145,7 @@ export default memo(function ParentDetailCoursePage() {
                   {attended === "Present"
                     ? "Đã điểm danh"
                     : attended === "Absent"
-                    ? "Chưa điểm danh"
+                    ? "Vắng mặt"
                     : "Theo dõi"}
                 </div>
               </div>

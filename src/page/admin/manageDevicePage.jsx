@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, memo, useCallback } from "react";
 import { collection, query, onSnapshot } from "firebase/firestore";
 import { db } from "../../config/firebaseConfig";
 import {
@@ -11,7 +11,7 @@ import ModifyDeviceModal from "./modifyForm/modifyDeviceForm";
 import { CiEdit } from "react-icons/ci";
 import { RiDeleteBin4Line } from "react-icons/ri";
 
-export default function ManageDevicePage() {
+export default memo(function ManageDevicePage() {
   const [deviceInfo, setDeviceInfo] = useState({
     id: "",
     roomID: "",
@@ -50,10 +50,6 @@ export default function ManageDevicePage() {
     setIsModifyModalOpen(true);
   };
 
-  const closeModifyModal = () => {
-    setIsModifyModalOpen(false);
-  };
-
   const checkStatus = async () => {
     try {
       const response = await axiosInstance.post("/checkStatus");
@@ -86,91 +82,103 @@ export default function ManageDevicePage() {
     }
   };
 
-  const handlePostDataOfDate = async (e) => {
-    e.preventDefault();
-    try {
-      const allDeviceUnknown = deviceList.every(
-        (device) => device.status === "Unknown"
-      );
-      if (allDeviceUnknown) {
-        alert("All devices are unknown. Please check device status first");
-        return;
+  const handlePostDataOfDate = useCallback(
+    async (e) => {
+      e.preventDefault();
+      try {
+        const allDeviceUnknown = deviceList.every(
+          (device) => device.status === "Unknown"
+        );
+        if (allDeviceUnknown) {
+          alert("All devices are unknown. Please check device status first");
+          return;
+        }
+        const result = await postDataDate(postDataOfDate);
+        console.log(result);
+        alert("Post data of date successfully");
+      } catch (error) {
+        console.log(error);
+        alert("Failed to post data of date");
       }
-      const result = await postDataDate(postDataOfDate);
-      console.log(result);
-      alert("Post data of date successfully");
-    } catch (error) {
-      console.log(error);
-      alert("Failed to post data of date");
-    }
-  };
+    },
+    [deviceList, postDataOfDate]
+  );
 
-  const handleCheckStatus = async (e) => {
-    e.preventDefault();
-    try {
-      if (deviceList.length === 0) {
-        alert("No device to reset status");
-        return;
+  const handleCheckStatus = useCallback(
+    async (e) => {
+      e.preventDefault();
+      try {
+        if (deviceList.length === 0) {
+          alert("No device to reset status");
+          return;
+        }
+        const result = await checkStatus();
+        console.log(result);
+        alert("Check device status successfully");
+      } catch (error) {
+        console.log(error);
+        alert("Failed to check device status");
       }
-      const result = await checkStatus();
-      console.log(result);
-      alert("Check device status successfully");
-    } catch (error) {
-      console.log(error);
-      alert("Failed to check device status");
-    }
-  };
+    },
+    [deviceList]
+  );
 
-  const handleResetStatus = async (e) => {
-    e.preventDefault();
-    try {
-      if (deviceList.length === 0) {
-        alert("No device to reset status");
-        return;
+  const handleResetStatus = useCallback(
+    async (e) => {
+      e.preventDefault();
+      try {
+        if (deviceList.length === 0) {
+          alert("No device to reset status");
+          return;
+        }
+        const result = await resetStatus();
+        console.log(result);
+        alert("Reset device status successfully");
+      } catch (err) {
+        console.error(err);
+        if (err.message === "Network Error") {
+          alert("Network error. Please check your connection and try again.");
+        } else {
+          alert("Failed to delete device");
+        }
       }
-      const result = await resetStatus();
-      console.log(result);
-      alert("Reset device status successfully");
-    } catch (err) {
-      console.error(err);
-      if (err.message === "Network Error") {
-        alert("Network error. Please check your connection and try again.");
-      } else {
-        alert("Failed to delete device");
-      }
-    }
-  };
+    },
+    [deviceList]
+  );
 
-  const handleDeviceSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      if (deviceInfo.id === "" || deviceInfo.roomID === "") {
-        alert("Please fill in all fields");
+  const handleDeviceSubmit = useCallback(
+    async (e) => {
+      e.preventDefault();
+      try {
+        if (deviceInfo.id === "" || deviceInfo.roomID === "") {
+          alert("Please fill in all fields");
+          setDeviceInfo({ ...deviceInfo, id: "", roomID: "" });
+          return;
+        }
+        if (!deviceInfo.id.match(/^[0-9]+$/)) {
+          alert("Device ID must be a number");
+          setDeviceInfo({ ...deviceInfo, id: "", roomID: "" });
+          return;
+        }
+        if (deviceList.some((device) => device.id === deviceInfo.id)) {
+          alert("Device ID already exists");
+          setDeviceInfo({ ...deviceInfo, id: "", roomID: "" });
+          return;
+        }
+        await doAddDevice(deviceInfo);
+        alert("Device added successfully");
         setDeviceInfo({ ...deviceInfo, id: "", roomID: "" });
-        return;
-      }
-      if (!deviceInfo.id.match(/^[0-9]+$/)) {
-        alert("Device ID must be a number");
+        closeAddForm();
+      } catch (err) {
+        console.error(err);
+        alert("Failed to add device");
         setDeviceInfo({ ...deviceInfo, id: "", roomID: "" });
-        return;
       }
-      if (deviceList.some((device) => device.id === deviceInfo.id)) {
-        alert("Device ID already exists");
-        setDeviceInfo({ ...deviceInfo, id: "", roomID: "" });
-        return;
-      }
-      await doAddDevice(deviceInfo);
-      alert("Device added successfully");
-      setDeviceInfo({ ...deviceInfo, id: "", roomID: "" });
-      closeAddForm();
-    } catch (err) {
-      console.error(err);
-      alert("Failed to add device");
-      setDeviceInfo({ ...deviceInfo, id: "", roomID: "" });
-    }
-  };
+    },
+    [deviceInfo, deviceList]
+  );
 
-  const handleDeleteDevice = async (e, deviceID) => {
+  const handleDeleteDevice = useCallback(async (e, deviceID) => {
     e.preventDefault();
     try {
       await doDeleteDocument("device", deviceID.toString());
@@ -180,7 +188,7 @@ export default function ManageDevicePage() {
       console.error(err);
       alert("Failed to delete device");
     }
-  };
+  }, []);
 
   useEffect(() => {
     const deviceQuery = query(collection(db, "device"));
@@ -376,4 +384,4 @@ export default function ManageDevicePage() {
       )}
     </div>
   );
-}
+});

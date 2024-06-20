@@ -1,16 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, memo } from "react";
 import PropTypes from "prop-types";
 import {
   doGetParentData,
   doUpdateParentData,
 } from "../../../controller/firestoreController";
 
-ModifyParentForm.propTypes = {
-  parentId: PropTypes.string.isRequired,
-  closeForm: PropTypes.func.isRequired,
-};
-
-function ModifyParentForm({ parentId, closeForm }) {
+const ModifyParentForm = memo(function ModifyParentForm({
+  parentId,
+  closeForm,
+}) {
   const [parentData, setParentData] = useState({
     name: "",
     address: "",
@@ -32,44 +30,47 @@ function ModifyParentForm({ parentId, closeForm }) {
     });
   };
 
-  const handleSubmit = (event) => {
-    event.preventDefault();
-    if (!parentData.name || !parentData.address || !parentData.phoneNumber) {
-      alert("Please fill in all fields");
-      setParentData({ name: "", address: "", phoneNumber: "" });
-      return;
-    }
-    if (parentData.phoneNumber.length < 10) {
-      alert("Phone number must be at least 10 characters");
-      setParentData({ ...parentData, phoneNumber: "" });
-      return;
-    }
-    const isPhoneNumberValid = /^\d+$/.test(parentData.phoneNumber);
-    if (!isPhoneNumberValid) {
-      alert("Phone number must be numeric");
-      setParentData({ ...parentData, phoneNumber: "" });
-      return;
-    }
-    if (parentData.name.length < 3) {
-      alert("Name must be at least 3 characters");
-      setParentData({ ...parentData, name: "" });
-      return;
-    }
-    if (parentData.phoneNumber.length > 15) {
-      alert("Phone number must be at most 15 characters");
-      setParentData({ ...parentData, phoneNumber: "" });
-      return;
-    }
-    if (parentData.name.length > 50) {
-      alert("Name must be at most 50 characters");
-      setParentData({ ...parentData, name: "" });
-      return;
-    }
-    // Replace this with your actual update logic
-    doUpdateParentData(parentId, parentData).then(() => {
-      closeForm();
-    });
-  };
+  const handleSubmit = useCallback(
+    (event) => {
+      event.preventDefault();
+      if (!parentData.name || !parentData.address || !parentData.phoneNumber) {
+        alert("Please fill in all fields");
+        setParentData({ name: "", address: "", phoneNumber: "" });
+        return;
+      }
+      if (parentData.phoneNumber.length < 10) {
+        alert("Phone number must be at least 10 characters");
+        setParentData({ ...parentData, phoneNumber: "" });
+        return;
+      }
+      const isPhoneNumberValid = /^\d+$/.test(parentData.phoneNumber);
+      if (!isPhoneNumberValid) {
+        alert("Phone number must be numeric");
+        setParentData({ ...parentData, phoneNumber: "" });
+        return;
+      }
+      if (parentData.name.length < 3) {
+        alert("Name must be at least 3 characters");
+        setParentData({ ...parentData, name: "" });
+        return;
+      }
+      if (parentData.phoneNumber.length > 15) {
+        alert("Phone number must be at most 15 characters");
+        setParentData({ ...parentData, phoneNumber: "" });
+        return;
+      }
+      if (parentData.name.length > 50) {
+        alert("Name must be at most 50 characters");
+        setParentData({ ...parentData, name: "" });
+        return;
+      }
+      // Replace this with your actual update logic
+      doUpdateParentData(parentId, parentData).then(() => {
+        closeForm();
+      });
+    },
+    [parentData, parentId, closeForm]
+  );
 
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-50 z-50">
@@ -131,6 +132,11 @@ function ModifyParentForm({ parentId, closeForm }) {
       </div>
     </div>
   );
-}
+});
+
+ModifyParentForm.propTypes = {
+  parentId: PropTypes.string.isRequired,
+  closeForm: PropTypes.func.isRequired,
+};
 
 export default ModifyParentForm;

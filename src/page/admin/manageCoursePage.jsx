@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, memo } from "react";
 import { onSnapshot, collection, query } from "firebase/firestore";
 import { db } from "../../config/firebaseConfig";
 import {
@@ -11,7 +11,7 @@ import {
 import { Link } from "react-router-dom";
 import ModifyCourseForm from "./modifyForm/modifyCourseForm";
 
-export default function ManageCoursePage() {
+export default memo(function ManageCoursePage() {
   const [roomList, setRoomList] = useState([]);
   const [lecturerList, setLecturerList] = useState([]);
   const [studentList, setStudentList] = useState([]);
@@ -34,82 +34,74 @@ export default function ManageCoursePage() {
     endTime: "",
   });
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      if (
-        course.roomID === "" ||
-        course.lecturerID === "" ||
-        course.code === "" ||
-        course.name === "" ||
-        course.startDay === "" ||
-        course.week === 0 ||
-        course.startTime === "" ||
-        course.endTime === ""
-      ) {
-        alert("Please fill all the fields");
-        return;
+  const handleSubmit = useCallback(
+    async (e) => {
+      e.preventDefault();
+      try {
+        if (
+          course.roomID === "" ||
+          course.lecturerID === "" ||
+          course.code === "" ||
+          course.name === "" ||
+          course.startDay === "" ||
+          course.week === 0 ||
+          course.startTime === "" ||
+          course.endTime === ""
+        ) {
+          alert("Please fill all the fields");
+          return;
+        }
+        if (courseStudentList.length === 0) {
+          alert("Please select at least one student");
+          return;
+        }
+        if (course.week < 1 || course.week > 16) {
+          alert("Week must be between 1 and 16");
+          return;
+        }
+        if (course.startTime >= course.endTime) {
+          alert("End time must be after start time");
+          return;
+        }
+        if (course.onlineURL === "") {
+          course.onlineURL = null;
+        }
+        if (course.startDay < new Date()) {
+          alert("Start day must be in the future");
+          return;
+        }
+        const existCourseID = courseList.filter(
+          (courseIndex) => course.code === courseIndex.code
+        );
+        if (existCourseID.length > 0) {
+          alert("Course ID already exists");
+          return;
+        }
+        await doAddCourse(course);
+        await doAddCourseStudent(course.code, courseStudentList);
+        await doAddScheduleCourse(
+          course.code,
+          course.startDay,
+          course.week,
+          courseStudentList
+        );
+        alert("Course added successfully");
+        setIsAddFormOpen(false);
+      } catch (error) {
+        console.log(error);
+        alert("Failed to add course");
       }
-      if (courseStudentList.length === 0) {
-        alert("Please select at least one student");
-        return;
-      }
-      if (course.week < 1 || course.week > 16) {
-        alert("Week must be between 1 and 16");
-        return;
-      }
-      if (course.startTime >= course.endTime) {
-        alert("End time must be after start time");
-        return;
-      }
-      if (course.onlineURL === "") {
-        course.onlineURL = null;
-      }
-      if (course.startDay < new Date()) {
-        alert("Start day must be in the future");
-        return;
-      }
-      const existCourseID = courseList.filter(
-        (courseIndex) => course.code === courseIndex.code
-      );
-      if (existCourseID.length > 0) {
-        alert("Course ID already exists");
-        return;
-      }
-      await doAddCourse(course);
-      await doAddCourseStudent(course.code, courseStudentList);
-      await doAddScheduleCourse(
-        course.code,
-        course.startDay,
-        course.week,
-        courseStudentList
-      );
-      alert("Course added successfully");
-      setIsAddFormOpen(false);
-    } catch (error) {
-      console.log(error);
-      alert("Failed to add course");
-    }
-  };
+    },
+    [course, courseList, courseStudentList]
+  );
 
-  const handleModifyCourse = async (e, courseID) => {
+  const handleModifyCourse = useCallback(async (e, courseID) => {
     e.preventDefault();
     setCurrentCourseID(courseID);
     setIsModifyFormOpen(true);
-  };
+  }, []);
 
-  // const handleDeleteCourse = async (e, courseID) => {
-  //   e.preventDefault();
-  //   try {
-  //     await doDeleteCourse(courseID);
-  //     setIsDeleteModalOpen(false);
-  //     alert("Course deleted successfully");
-  //   } catch (error) {
-  //     console.log(error);
-  //     alert("Failed to delete course");
-  //   }
-  // };
-  const handleDeleteCourse = async () => {
+  const handleDeleteCourse = useCallback(async () => {
     try {
       await doDeleteCourse(courseToDelete);
       setIsDeleteModalOpen(false);
@@ -118,11 +110,13 @@ export default function ManageCoursePage() {
       console.log(error);
       alert("Failed to delete course");
     }
-  };
-  const confirmDeleteCourse = (courseID) => {
+  }, [courseToDelete]);
+
+  const confirmDeleteCourse = useCallback((courseID) => {
     setCourseToDelete(courseID);
     setIsDeleteModalOpen(true);
-  };
+  }, []);
+
   useEffect(() => {
     const queryStudent = query(collection(db, "student"));
 
@@ -448,4 +442,4 @@ export default function ManageCoursePage() {
       )}
     </div>
   );
-}
+});

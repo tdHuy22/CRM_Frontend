@@ -51,7 +51,7 @@ export default memo(function LecturerDetailAttendanceDatePage() {
                     {student.attended == "Present"
                       ? "Đã điểm danh"
                       : student.attended == "Absent"
-                      ? "Chưa điểm danh"
+                      ? "Vắng mặt"
                       : "Theo dõi"}
                   </td>
                 </tr>

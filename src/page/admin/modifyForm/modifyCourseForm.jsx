@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback, memo, useMemo } from "react";
 import PropTypes from "prop-types";
 import {
   doGetCourseFromCourseID,
@@ -8,15 +8,7 @@ import {
 } from "../../../controller/firestoreController";
 import { convertDateFormat } from "../../../controller/formattedDate";
 
-ModifyCourseForm.propTypes = {
-  courseID: PropTypes.string.isRequired,
-  closeForm: PropTypes.func.isRequired,
-  roomList: PropTypes.array.isRequired,
-  lecturerList: PropTypes.array.isRequired,
-  studentList: PropTypes.array.isRequired,
-};
-
-function ModifyCourseForm({
+const ModifyCourseForm = memo(function ModifyCourseForm({
   courseID,
   closeForm,
   roomList,
@@ -34,15 +26,15 @@ function ModifyCourseForm({
   });
   const [courseStudents, setCourseStudents] = useState([]);
 
-  const handleInputCourseChange = (event) => {
+  const handleInputCourseChange = useCallback((event) => {
     const { name, value } = event.target;
     setCourseData((prevCourse) => ({
       ...prevCourse,
       [name]: value,
     }));
-  };
+  }, []);
 
-  const currentDate = new Date();
+  const currentDate = useMemo(() => new Date(), []);
   let startDate = useRef(new Date());
 
   useEffect(() => {
@@ -55,45 +47,48 @@ function ModifyCourseForm({
     });
   }, [courseID]);
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    try {
-      if (
-        courseData.roomID === "" ||
-        courseData.lecturerID === "" ||
-        courseData.code === "" ||
-        courseData.name === "" ||
-        courseData.startTime === "" ||
-        courseData.endTime === ""
-      ) {
-        alert("Please fill all the fields");
-        return;
+  const handleSubmit = useCallback(
+    async (event) => {
+      event.preventDefault();
+      try {
+        if (
+          courseData.roomID === "" ||
+          courseData.lecturerID === "" ||
+          courseData.code === "" ||
+          courseData.name === "" ||
+          courseData.startTime === "" ||
+          courseData.endTime === ""
+        ) {
+          alert("Please fill all the fields");
+          return;
+        }
+        if (courseStudents.length === 0) {
+          alert("Please select at least one student");
+          return;
+        }
+        if (courseData.startTime >= courseData.endTime) {
+          alert("End time must be after start time");
+          return;
+        }
+        if (courseData.week < 1 || courseData.week > 16) {
+          alert("Week must be between 1 and 16");
+          return;
+        }
+        if (startDate.current < currentDate) {
+          alert("Start day must be in the future");
+          return;
+        }
+        await doUpdateCourseData(courseID, courseData);
+        await doUpdateCourseStudentList(courseID, courseStudents);
+        alert("Course updated successfully");
+        closeForm();
+      } catch (error) {
+        console.log(error);
+        alert("Failed to update course");
       }
-      if (courseStudents.length === 0) {
-        alert("Please select at least one student");
-        return;
-      }
-      if (courseData.startTime >= courseData.endTime) {
-        alert("End time must be after start time");
-        return;
-      }
-      if (courseData.week < 1 || courseData.week > 16) {
-        alert("Week must be between 1 and 16");
-        return;
-      }
-      if (startDate.current < currentDate) {
-        alert("Start day must be in the future");
-        return;
-      }
-      await doUpdateCourseData(courseID, courseData);
-      await doUpdateCourseStudentList(courseID, courseStudents);
-      alert("Course updated successfully");
-      closeForm();
-    } catch (error) {
-      console.log(error);
-      alert("Failed to update course");
-    }
-  };
+    },
+    [courseData, courseStudents, courseID, closeForm, startDate, currentDate]
+  );
 
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
@@ -253,6 +248,14 @@ function ModifyCourseForm({
       </div>
     </div>
   );
-}
+});
+
+ModifyCourseForm.propTypes = {
+  courseID: PropTypes.string.isRequired,
+  closeForm: PropTypes.func.isRequired,
+  roomList: PropTypes.array.isRequired,
+  lecturerList: PropTypes.array.isRequired,
+  studentList: PropTypes.array.isRequired,
+};
 
 export default ModifyCourseForm;
