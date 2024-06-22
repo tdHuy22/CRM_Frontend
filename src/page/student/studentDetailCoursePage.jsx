@@ -3,12 +3,13 @@ import { useEffect, useState, useCallback, memo } from "react";
 import {
   doGetCourseDetail,
   doGetScheduleFromCourseID,
-  doGetStudentAttendanceFromCourseID,
   doGetAttendStatusFromStudentID,
   doGetScheduleListFromCourseID,
 } from "../../controller/firestoreController";
 import { formattedDate } from "../../controller/formattedDate";
 import { useAuth } from "../../controller/authController";
+import { onSnapshot, query, collection, where } from "firebase/firestore";
+import { db } from "../../config/firebaseConfig";
 
 export default memo(function StudentDetailCoursePage() {
   const { courseCode } = useParams();
@@ -40,16 +41,6 @@ export default memo(function StudentDetailCoursePage() {
     setSchedule(schedule);
   }, [courseCode, currentDay]);
 
-  const getAttendanceStudent = useCallback(async () => {
-    const attendanceStats = await doGetStudentAttendanceFromCourseID(
-      courseCode,
-      currentUser.uid,
-      currentDay
-    );
-    setAttended(attendanceStats);
-  }, [courseCode, currentUser.uid, currentDay]);
-  // lấy trạng thái điểm danh của cả môn học:
-
   const getAttendanceStats = useCallback(async () => {
     const attendanceStats = await doGetAttendStatusFromStudentID(
       currentUser.uid,
@@ -60,11 +51,42 @@ export default memo(function StudentDetailCoursePage() {
 
   useEffect(() => {
     getScheduleList();
-    getAttendanceStudent();
     getAttendanceStats();
     getCourseDetail();
     getSchedule();
-  }, [getScheduleList, getAttendanceStudent, getAttendanceStats, getCourseDetail, getSchedule]);
+
+    const querySchedule = query(
+      collection(db, "schedule"),
+      where("courseID", "==", courseCode),
+      where("date", "==", currentDay)
+    );
+
+    const unsubscribeAttendance = onSnapshot(querySchedule, (snapshot) => {
+      if (snapshot.empty) {
+        console.log("No matching documents.");
+        return;
+      }
+
+      const attendanceRef = query(
+        collection(db, "attendance"),
+        where("studentID", "==", currentUser.uid),
+        where("scheduleID", "==", snapshot.docs[0].id),
+        where("courseID", "==", courseCode)
+      );
+
+      onSnapshot(attendanceRef, (snapshot) => {
+        if (snapshot.empty) {
+          setAttended("Absent");
+        } else {
+          setAttended(snapshot.docs[0].data().attended);
+        }
+      });
+    });
+
+    return () => {
+      unsubscribeAttendance();
+    };
+  }, [getScheduleList, getAttendanceStats, getCourseDetail, getSchedule, currentDay, courseCode, currentUser.uid]);
 
   return (
     <div className="h-[calc(100vh-70px-50px)] flex flex-col lg:flex-row justify-evenly p-8 bg-gray-50">

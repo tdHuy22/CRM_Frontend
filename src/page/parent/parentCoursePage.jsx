@@ -27,6 +27,12 @@ export default memo(function ParentCoursePage() {
     [navigate]
   );
 
+  const getCourseList = useCallback(async (studentId) => {
+    const courseList = await doGetCourseFromStudentID(studentId);
+    console.log("courseList: ", courseList);
+    setCourseListInfo(courseList);
+  }, []);
+
   const getStudentList = useCallback(async () => {
     const studentList = await doGetStudentFromParent(currentUser.uid);
     console.log("studentList: ", studentList);
@@ -36,12 +42,6 @@ export default memo(function ParentCoursePage() {
       getCourseList(studentList[0].id);
     }
   }, [currentUser.uid, getCourseList]);
-
-  const getCourseList = useCallback(async (studentId) => {
-    const courseList = await doGetCourseFromStudentID(studentId);
-    console.log("courseList: ", courseList);
-    setCourseListInfo(courseList);
-  }, []);
 
   useEffect(() => {
     if (currentUser) {

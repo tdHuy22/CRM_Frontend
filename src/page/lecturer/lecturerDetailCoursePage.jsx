@@ -6,7 +6,6 @@ import {
   doUpdateCourseOnlineLink,
   doGetScheduleListFromCourseID,
   getStudentCount,
-  getAttendedStudentCountToday,
 } from "../../controller/firestoreController";
 import LecListStudentPage from "./lecturerListStudent";
 import LecturerDetailAttendanceDatePage from "./lecturerDetailAttendanceDate";
@@ -201,15 +200,11 @@ export default memo(function LecturerDetailCoursePage() {
   const getClassSchedule = useCallback(async () => {
     try {
       const total = await getStudentCount(courseCode);
-      const attended = await getAttendedStudentCountToday(
-        courseCode,
-        currentDay
-      );
-      setAttendanceStatsOfClass({ attended, total });
+      setAttendanceStatsOfClass((prev) => ({ ...prev, total }));
     } catch (error) {
       console.error("Failed to get class schedule: ", error);
     }
-  }, [courseCode, currentDay]);
+  }, [courseCode]);
 
   useEffect(() => {
     const queryCourse = query(doc(db, "course", courseCode));
@@ -236,6 +231,32 @@ export default memo(function LecturerDetailCoursePage() {
       }
     );
 
+    const querySchedule = query(
+      collection(db, "schedule"),
+      where("courseID", "==", courseCode),
+      where("date", "==", currentDay)
+    );
+
+    const unsubscribeSchedule = onSnapshot(querySchedule, (snapshot) => {
+      if (snapshot.empty) {
+        console.log("No matching documents.");
+        return;
+      }
+      const scheduleID = snapshot.docs[0].id;
+      const queryAttendance = query(
+        collection(db, "attendance"),
+        where("scheduleID", "==", scheduleID),
+        where("attended", "==", "Present")
+      );
+      onSnapshot(queryAttendance, (snapshot) => {
+        let attended = 0;
+        snapshot.docs.forEach(() => {
+          attended++;
+        });
+        setAttendanceStatsOfClass((prev) => ({ ...prev, attended }));
+      });
+    });
+
     GetScheduleList();
 
     getClassSchedule();
@@ -243,6 +264,7 @@ export default memo(function LecturerDetailCoursePage() {
     return () => {
       unsubscribeCourse();
       unsubscribeCourseStudent();
+      unsubscribeSchedule();
     };
   }, [courseCode, currentDay, GetScheduleList, getClassSchedule]);
 

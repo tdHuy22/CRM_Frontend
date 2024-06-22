@@ -4,18 +4,20 @@ import {
   doGetCourseDetail,
   doGetScheduleFromCourseID,
   doGetAttendStatusFromStudentID,
-  doGetStudentAttendanceFromCourseID,
   doGetStudentFromParent,
   doGetScheduleListFromCourseID,
 } from "../../controller/firestoreController";
 import { formattedDate } from "../../controller/formattedDate";
 import { useAuth } from "../../controller/authController";
+import { onSnapshot, query, collection, where } from "firebase/firestore";
+import { db } from "../../config/firebaseConfig";
 
 export default memo(function ParentDetailCoursePage() {
   const { courseCode } = useParams();
   const { currentUser } = useAuth();
   const [course, setCourse] = useState({});
   const [schedule, setSchedule] = useState([]);
+  const [studentId, setStudentId] = useState("");
   const [attended, setAttended] = useState("Absent");
   const [attendanceStats, setAttendanceStats] = useState({
     attended: 0,
@@ -29,29 +31,6 @@ export default memo(function ParentDetailCoursePage() {
     setScheduleList(scheduleList);
   }, [courseCode]);
 
-  const getStudentList = useCallback(async () => {
-    const studentListFC = await doGetStudentFromParent(currentUser.uid);
-    if (studentListFC.length > 0) {
-      getAttendanceStats(studentListFC[0].id);
-      const attend = await doGetStudentAttendanceFromCourseID(
-        courseCode,
-        studentListFC[0].id,
-        currentDay
-      );
-      setAttended(attend);
-    }
-  }, [currentUser.uid, courseCode, currentDay, getAttendanceStats]);
-
-  const getCourseDetail = useCallback(async () => {
-    const courseDetail = await doGetCourseDetail(courseCode);
-    setCourse(courseDetail);
-  }, [courseCode]);
-
-  const getSchedule = useCallback(async () => {
-    const schedule = await doGetScheduleFromCourseID(courseCode, currentDay);
-    setSchedule(schedule);
-  }, [courseCode, currentDay]);
-
   const getAttendanceStats = useCallback(
     async (studentID) => {
       const attendanceStats = await doGetAttendStatusFromStudentID(
@@ -63,12 +42,62 @@ export default memo(function ParentDetailCoursePage() {
     [courseCode]
   );
 
+  const getStudentList = useCallback(async () => {
+    const studentListFC = await doGetStudentFromParent(currentUser.uid);
+    if (studentListFC.length > 0) {
+      getAttendanceStats(studentListFC[0].id);
+      setStudentId(studentListFC[0].id);
+    }
+  }, [currentUser.uid, getAttendanceStats]);
+
+  const getCourseDetail = useCallback(async () => {
+    const courseDetail = await doGetCourseDetail(courseCode);
+    setCourse(courseDetail);
+  }, [courseCode]);
+
+  const getSchedule = useCallback(async () => {
+    const schedule = await doGetScheduleFromCourseID(courseCode, currentDay);
+    setSchedule(schedule);
+  }, [courseCode, currentDay]);
+
   useEffect(() => {
     getScheduleList();
     getStudentList();
     getCourseDetail();
     getSchedule();
-  }, [getScheduleList, getStudentList, getCourseDetail, getSchedule]);
+
+    const querySchedule = query(
+      collection(db, "schedule"),
+      where("courseID", "==", courseCode),
+      where("date", "==", currentDay)
+    );
+
+    const unsubscribeAttendance = onSnapshot(querySchedule, (snapshot) => {
+      if (snapshot.empty) {
+        console.log("No matching documents.");
+        return;
+      }
+
+      const queryAttendance = query(
+        collection(db, "attendance"),
+        where("studentID", "==", studentId),
+        where("scheduleID", "==", snapshot.docs[0].id),
+        where("courseID", "==", courseCode)
+      );
+
+      onSnapshot(queryAttendance, (snapshot) => {
+        if (snapshot.empty) {
+          setAttended("Absent");
+        } else {
+          setAttended(snapshot.docs[0].data().attended);
+        }
+      });
+    });
+
+    return () => {
+      unsubscribeAttendance();
+    };
+  }, [getScheduleList, getStudentList, getCourseDetail, getSchedule, currentDay, courseCode, currentUser.uid, studentId]);
 
   return (
     <div className="h-[calc(100vh-70px-50px)] flex flex-col lg:flex-row justify-evenly p-8 bg-gray-50">

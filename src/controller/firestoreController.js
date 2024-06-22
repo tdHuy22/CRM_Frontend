@@ -173,66 +173,56 @@ async function doUpdateCourseOnlineLink(courseCode, onlineURL) {
   return courseOnlLinkQuery;
 }
 
-// Có chỉnh sửa:
+// Có chỉnh sửa ở đây
 
 async function doGetStudentInfoLecturer(studentList, courseCode) {
-  // console.log("studentListID: ", studentList);
-  // console.log("courseCode: ", courseCode);
-
-  if (studentList.length === 0 || !studentList) {
+  if (!studentList || studentList.length === 0) {
     console.log("No student");
     return [];
   }
 
-  let studentListID = [];
-
-  const attendanceRef = collection(db, "attendance");
   const studentRef = collection(db, "student");
+  const attendanceRef = collection(db, "attendance");
 
-  const studentQuery = query(
-    studentRef,
-    where(documentId(), "in", studentList)
+  // Fetch student information in batches if necessary
+  let studentListID = [];
+  const batchSize = 10; // Firestore limit
+  for (let i = 0; i < studentList.length; i += batchSize) {
+    const batch = studentList.slice(i, i + batchSize);
+    const studentQuery = query(studentRef, where(documentId(), "in", batch));
+    const studentSnap = await getDocs(studentQuery);
+    studentSnap.forEach((doc) => {
+      studentListID.push({ id: doc.id, name: doc.data().name });
+    });
+  }
+
+  // Fetch all attendance records for the courseCode at once
+  const attendanceQuery = query(
+    attendanceRef,
+    where("courseID", "==", courseCode)
   );
-
-  const studentSnap = await getDocs(studentQuery);
-  studentSnap.forEach((doc) => {
-    studentListID.push({ id: doc.id, name: doc.data().name });
+  const attendanceSnap = await getDocs(attendanceQuery);
+  let attendanceRecords = [];
+  attendanceSnap.forEach((doc) => {
+    attendanceRecords.push({ ...doc.data(), id: doc.id });
   });
 
-  const studentListResult = await Promise.all(
-    studentListID.map(async (student) => {
-      const attendanceQuery = query(
-        attendanceRef,
-        where("studentID", "==", student.id),
-        where("courseID", "==", courseCode)
-      );
+  // Process attendance records in memory
+  const studentListResult = studentListID.map((student) => {
+    const studentAttendance = attendanceRecords.filter(
+      (record) => record.studentID === student.id
+    );
+    const attended = studentAttendance.filter(
+      (record) => record.attended === "Present"
+    ).length;
+    const total = studentAttendance.length;
 
-      const attendedQuery = query(
-        attendanceRef,
-        where("studentID", "==", student.id),
-        where("courseID", "==", courseCode),
-        where("attended", "==", "Present")
-      );
-
-      let attendance = 0;
-      const attendanceSnap = await getDocs(attendanceQuery);
-      attendanceSnap.forEach(() => {
-        attendance++;
-      });
-
-      let attended = 0;
-      const attendedSnap = await getDocs(attendedQuery);
-      attendedSnap.forEach(() => {
-        attended++;
-      });
-
-      return {
-        ...student,
-        attended: attended,
-        total: attendance,
-      };
-    })
-  );
+    return {
+      ...student,
+      attended,
+      total,
+    };
+  });
 
   return studentListResult;
 }
@@ -344,42 +334,6 @@ async function doGetScheduleFromCourseID(courseID, currentDay) {
     return scheduleList;
   }
 }
-
-async function doGetStudentAttendanceFromCourseID(
-  courseID,
-  studentID,
-  currentDate
-) {
-  const scheduleRef = collection(db, "schedule");
-  const attendanceRef = collection(db, "attendance");
-
-  const scheduleQuery = query(
-    scheduleRef,
-    where("courseID", "==", courseID),
-    where("date", "==", currentDate)
-  );
-
-  const scheduleSnap = await getDocs(scheduleQuery);
-  let scheduleID = "";
-  scheduleSnap.forEach((doc) => {
-    scheduleID = doc.id;
-  });
-
-  const attendanceQuery = query(
-    attendanceRef,
-    where("courseID", "==", courseID),
-    where("studentID", "==", studentID),
-    where("scheduleID", "==", scheduleID)
-  );
-  const attendanceSnap = await getDocs(attendanceQuery);
-  let attended = "Absent";
-  attendanceSnap.forEach((doc) => {
-    attended = doc.data().attended;
-  });
-
-  return attended;
-}
-// có thay đổi
 
 async function doGetAttendStatusFromStudentID(studentID, courseID) {
   const attendanceRef = collection(db, "attendance");
@@ -850,7 +804,6 @@ export {
   doGetCourseFromStudentID,
   doGetCourseDetail,
   doGetScheduleFromCourseID,
-  doGetStudentAttendanceFromCourseID,
   doGetAttendStatusFromStudentID,
   doGetCourseFromCourseID,
   doDeleteDocument,

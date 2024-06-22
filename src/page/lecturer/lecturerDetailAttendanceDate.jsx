@@ -1,29 +1,91 @@
-import { useState, useEffect, useContext, useCallback, memo } from "react";
+import { useState, useEffect, useContext, memo } from "react";
 import { LecturerContext } from "./lecturerDetailCoursePage";
-import { doGetAttendedListOfDate } from "../../controller/firestoreController";
 import { convertDateFormat } from "../../controller/formattedDate";
+import { db } from "../../config/firebaseConfig";
+import {
+  collection,
+  where,
+  query,
+  documentId,
+  onSnapshot,
+} from "firebase/firestore";
 
 export default memo(function LecturerDetailAttendanceDatePage() {
   const { studentList, courseCode, currentDay, startDay } =
     useContext(LecturerContext);
 
   const [attendedList, setAttendedList] = useState([
-    { name: "", attended: false },
+    { name: "", attended: "" },
   ]);
 
-  const getAttendanceList = useCallback(async () => {
-    if (studentList.length === 0) return;
-    const attendanceListFC = await doGetAttendedListOfDate(
-      studentList,
-      courseCode,
-      currentDay
-    );
-    setAttendedList(attendanceListFC);
-  }, [studentList, courseCode, currentDay]);
-
   useEffect(() => {
-    getAttendanceList();
-  }, [getAttendanceList]);
+    let studentListID = [];
+    if (studentList.length === 0) {
+      console.log("No student in this course");
+      return;
+    }
+    const queryStudent = query(
+      collection(db, "student"),
+      where(documentId(), "in", studentList)
+    );
+    const unsubscribeAttendance = onSnapshot(queryStudent, (snapshot) => {
+      if (snapshot.empty) {
+        console.log("No matching documents.");
+        return;
+      }
+      // console.log("StudentListID:");
+      studentListID = snapshot.docs.map((doc) => {
+        // console.log(doc.id);
+        return { id: doc.id, name: doc.data().name };
+      });
+      const querySchedule = query(
+        collection(db, "schedule"),
+        where("courseID", "==", courseCode),
+        where("date", "==", currentDay)
+      );
+      onSnapshot(querySchedule, (snapshot) => {
+        let scheduleID = "";
+        if (snapshot.empty) {
+          console.log("No matching documents.");
+          return;
+        }
+        snapshot.docs.forEach((doc) => {
+          scheduleID = doc.id;
+        });
+
+        if (scheduleID) {
+          const attendanceRef = collection(db, "attendance");
+          const attendancePromises = studentListID.map((student) => {
+            return new Promise((resolve) => {
+              const attendanceQuery = query(
+                attendanceRef,
+                where("studentID", "==", student.id),
+                where("courseID", "==", courseCode),
+                where("scheduleID", "==", scheduleID)
+              );
+
+              onSnapshot(attendanceQuery, (attendanceSnap) => {
+                let attended = "Absent";
+                attendanceSnap.forEach((doc) => {
+                  attended = doc.data().attended;
+                });
+                resolve({ ...student, attended: attended });
+              });
+            });
+          });
+
+          Promise.all(attendancePromises).then((attendanceList) => {
+            setAttendedList(attendanceList);
+          });
+        } else {
+          setAttendedList([]);
+        }
+      });
+    });
+    return () => {
+      unsubscribeAttendance();
+    };
+  }, [studentList, courseCode, currentDay]);
 
   return (
     <div className="container mx-auto mt-8 overflow-scroll">
