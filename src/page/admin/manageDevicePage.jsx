@@ -23,6 +23,7 @@ export default memo(function ManageDevicePage() {
   const [postDataOfDate, setPostDataOfDate] = useState(
     formattedDate(new Date())
   );
+  const [currentTimeforOnline, setCurrentTimeforOnline] = useState("");
   const [currentDeviceId, setCurrentDeviceId] = useState("");
   const [isModifyModalOpen, setIsModifyModalOpen] = useState(false);
   const [isAddFormOpen, setIsAddFormOpen] = useState(false);
@@ -70,10 +71,11 @@ export default memo(function ManageDevicePage() {
     }
   };
 
-  const postDataDate = async (date) => {
+  const postDataDate = async (date, time) => {
     try {
       const response = await axiosInstance.post("/postDataOfDate", {
         date,
+        time,
       });
       return response;
     } catch (err) {
@@ -93,7 +95,7 @@ export default memo(function ManageDevicePage() {
           alert("All devices are unknown. Please check device status first");
           return;
         }
-        const result = await postDataDate(postDataOfDate);
+        const result = await postDataDate(postDataOfDate, currentTimeforOnline);
         console.log(result);
         alert("Post data of date successfully");
       } catch (error) {
@@ -101,7 +103,7 @@ export default memo(function ManageDevicePage() {
         alert("Failed to post data of date");
       }
     },
-    [deviceList, postDataOfDate]
+    [deviceList, postDataOfDate, currentTimeforOnline]
   );
 
   const handleCheckStatus = useCallback(
@@ -286,6 +288,11 @@ export default memo(function ManageDevicePage() {
             onChange={(e) =>
               setPostDataOfDate(formattedDate(new Date(e.target.value)))
             }
+          />
+          <input
+            type="time"
+            className="border border-gray-300 p-2 rounded mb-2"
+            onChange={(e) => setCurrentTimeforOnline(e.target.value)}
           />
           <button
             className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
