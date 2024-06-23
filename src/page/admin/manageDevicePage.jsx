@@ -23,7 +23,7 @@ export default memo(function ManageDevicePage() {
   const [postDataOfDate, setPostDataOfDate] = useState(
     formattedDate(new Date())
   );
-  const [currentTimeforOnline, setCurrentTimeforOnline] = useState("");
+  const [currentTimeForOnline, setCurrentTimeForOnline] = useState("");
   const [currentDeviceId, setCurrentDeviceId] = useState("");
   const [isModifyModalOpen, setIsModifyModalOpen] = useState(false);
   const [isAddFormOpen, setIsAddFormOpen] = useState(false);
@@ -84,6 +84,31 @@ export default memo(function ManageDevicePage() {
     }
   };
 
+  const deviceWorkAuto = async (time) => {
+    try {
+      const response = await axiosInstance.post("/deviceWorkAuto", { time });
+      return response;
+    } catch (err) {
+      console.error(err);
+      return err;
+    }
+  };
+
+  const handleAutoWork = useCallback(
+    async (e) => {
+      e.preventDefault();
+      try {
+        const result = await deviceWorkAuto(currentTimeForOnline);
+        console.log(result);
+        alert("Device work automatically successfully");
+      } catch (error) {
+        console.log(error);
+        alert("Failed to work device automatically");
+      }
+    },
+    [currentTimeForOnline]
+  );
+
   const handlePostDataOfDate = useCallback(
     async (e) => {
       e.preventDefault();
@@ -95,7 +120,7 @@ export default memo(function ManageDevicePage() {
           alert("All devices are unknown. Please check device status first");
           return;
         }
-        const result = await postDataDate(postDataOfDate, currentTimeforOnline);
+        const result = await postDataDate(postDataOfDate, currentTimeForOnline);
         console.log(result);
         alert("Post data of date successfully");
       } catch (error) {
@@ -103,7 +128,7 @@ export default memo(function ManageDevicePage() {
         alert("Failed to post data of date");
       }
     },
-    [deviceList, postDataOfDate, currentTimeforOnline]
+    [deviceList, postDataOfDate, currentTimeForOnline]
   );
 
   const handleCheckStatus = useCallback(
@@ -292,13 +317,19 @@ export default memo(function ManageDevicePage() {
           <input
             type="time"
             className="border border-gray-300 p-2 rounded mb-2"
-            onChange={(e) => setCurrentTimeforOnline(e.target.value)}
+            onChange={(e) => setCurrentTimeForOnline(e.target.value)}
           />
           <button
             className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
             onClick={(e) => handlePostDataOfDate(e)}
           >
             Post data of date: {postDataOfDate}
+          </button>
+          <button
+            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-700 transition mt-4"
+            onClick={(e) => handleAutoWork(e)}
+          >
+            Automatically Mode
           </button>
         </div>
       </div>
