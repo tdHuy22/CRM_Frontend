@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback, memo } from "react";
 import {
   doGetCourseDetail,
   doGetScheduleFromCourseID,
-  doGetAttendStatusFromStudentID,
+  // doGetAttendStatusFromStudentID,
   doGetScheduleListFromCourseID,
 } from "../../controller/firestoreController";
 import { formattedDate } from "../../controller/formattedDate";
@@ -41,17 +41,17 @@ export default memo(function StudentDetailCoursePage() {
     setSchedule(schedule);
   }, [courseCode, currentDay]);
 
-  const getAttendanceStats = useCallback(async () => {
-    const attendanceStats = await doGetAttendStatusFromStudentID(
-      currentUser.uid,
-      courseCode
-    );
-    setAttendanceStats(attendanceStats);
-  }, [courseCode, currentUser.uid]);
+  // const getAttendanceStats = useCallback(async () => {
+  //   const attendanceStats = await doGetAttendStatusFromStudentID(
+  //     currentUser.uid,
+  //     courseCode
+  //   );
+  //   setAttendanceStats(attendanceStats);
+  // }, [courseCode, currentUser.uid]);
 
   useEffect(() => {
     getScheduleList();
-    getAttendanceStats();
+    // getAttendanceStats();
     getCourseDetail();
     getSchedule();
 
@@ -83,10 +83,28 @@ export default memo(function StudentDetailCoursePage() {
       });
     });
 
+    const queryAttendance = query(
+      collection(db, "attendance"),
+      where("studentID", "==", currentUser.uid),
+      where("courseID", "==", courseCode)
+    );
+
+    const unsubscribeAttendanceStats = onSnapshot(
+      queryAttendance,
+      (snapshot) => {
+        const total = snapshot.docs.length;
+        const attended = snapshot.docs.filter(
+          (doc) => doc.data().attended === "Present"
+        ).length;
+        setAttendanceStats({ total, attended });
+      }
+    );
+
     return () => {
       unsubscribeAttendance();
+      unsubscribeAttendanceStats();
     };
-  }, [getScheduleList, getAttendanceStats, getCourseDetail, getSchedule, currentDay, courseCode, currentUser.uid]);
+  }, [getScheduleList, getCourseDetail, getSchedule, currentDay, courseCode, currentUser.uid]);
 
   return (
     <div className="h-[calc(100vh-70px-50px)] flex flex-col lg:flex-row justify-evenly p-8 bg-gray-50">

@@ -3,7 +3,6 @@ import { useEffect, useState, useCallback, memo } from "react";
 import {
   doGetCourseDetail,
   doGetScheduleFromCourseID,
-  doGetAttendStatusFromStudentID,
   doGetStudentFromParent,
   doGetScheduleListFromCourseID,
 } from "../../controller/firestoreController";
@@ -31,24 +30,12 @@ export default memo(function ParentDetailCoursePage() {
     setScheduleList(scheduleList);
   }, [courseCode]);
 
-  const getAttendanceStats = useCallback(
-    async (studentID) => {
-      const attendanceStats = await doGetAttendStatusFromStudentID(
-        studentID,
-        courseCode
-      );
-      setAttendanceStats(attendanceStats);
-    },
-    [courseCode]
-  );
-
   const getStudentList = useCallback(async () => {
     const studentListFC = await doGetStudentFromParent(currentUser.uid);
     if (studentListFC.length > 0) {
-      getAttendanceStats(studentListFC[0].id);
       setStudentId(studentListFC[0].id);
     }
-  }, [currentUser.uid, getAttendanceStats]);
+  }, [currentUser.uid]);
 
   const getCourseDetail = useCallback(async () => {
     const courseDetail = await doGetCourseDetail(courseCode);
@@ -94,8 +81,26 @@ export default memo(function ParentDetailCoursePage() {
       });
     });
 
+    const queryAttendance = query(
+      collection(db, "attendance"),
+      where("studentID", "==", studentId),
+      where("courseID", "==", courseCode)
+    );
+
+    const unsubscribeAttendanceStats = onSnapshot(
+      queryAttendance,
+      (snapshot) => {
+        const total = snapshot.docs.length;
+        const attended = snapshot.docs.filter(
+          (doc) => doc.data().attended === "Present"
+        ).length;
+        setAttendanceStats({ total, attended });
+      }
+    );
+
     return () => {
       unsubscribeAttendance();
+      unsubscribeAttendanceStats();
     };
   }, [getScheduleList, getStudentList, getCourseDetail, getSchedule, currentDay, courseCode, currentUser.uid, studentId]);
 

@@ -1,14 +1,19 @@
-import { useState, useEffect, useContext, memo } from "react";
+import {
+  useState,
+  useEffect,
+  useContext,
+  memo,
+  useCallback,
+  useMemo,
+} from "react";
 import { LecturerContext } from "./lecturerDetailCoursePage";
 import { convertDateFormat } from "../../controller/formattedDate";
 import { db } from "../../config/firebaseConfig";
+import { collection, onSnapshot, query, where } from "firebase/firestore";
 import {
-  collection,
-  where,
-  query,
-  documentId,
-  onSnapshot,
-} from "firebase/firestore";
+  doGetStudentInfoListLecturer,
+  doGetScheduleIDLecturer,
+} from "../../controller/firestoreController";
 
 export default memo(function LecturerDetailAttendanceDatePage() {
   const { studentList, courseCode, currentDay, startDay } =
@@ -17,75 +22,63 @@ export default memo(function LecturerDetailAttendanceDatePage() {
   const [attendedList, setAttendedList] = useState([
     { name: "", attended: "" },
   ]);
+  const [studentInfoList, setStudentInfoList] = useState([]);
+  const [scheduleID, setScheduleID] = useState("");
+
+  const getStudentAttendanceList = useCallback(async () => {
+    const result = await doGetStudentInfoListLecturer(studentList);
+    setStudentInfoList(result);
+  }, [studentList]);
+
+  const getScheduleID = useCallback(async () => {
+    const result = await doGetScheduleIDLecturer(courseCode, currentDay);
+    setScheduleID(result);
+  }, [courseCode, currentDay]);
 
   useEffect(() => {
-    let studentListID = [];
-    if (studentList.length === 0) {
-      console.log("No student in this course");
+    const fetchData = async () => {
+      await getScheduleID();
+      await getStudentAttendanceList();
+    };
+    fetchData();
+  }, [getScheduleID, getStudentAttendanceList]);
+
+  useEffect(() => {
+    if (!scheduleID) {
+      console.log("scheduleID is null");
       return;
     }
-    const queryStudent = query(
-      collection(db, "student"),
-      where(documentId(), "in", studentList)
+    if (studentInfoList.length === 0) {
+      console.log("studentInfoList is null");
+      return;
+    }
+    const queryAttendance = query(
+      collection(db, "attendance"),
+      where("scheduleID", "==", scheduleID),
+      where("courseID", "==", courseCode),
+      where(
+        "studentID",
+        "in",
+        studentInfoList.map((student) => student.id)
+      )
     );
-    const unsubscribeAttendance = onSnapshot(queryStudent, (snapshot) => {
-      if (snapshot.empty) {
-        console.log("No matching documents.");
-        return;
-      }
-      // console.log("StudentListID:");
-      studentListID = snapshot.docs.map((doc) => {
-        // console.log(doc.id);
-        return { id: doc.id, name: doc.data().name };
+    const unsubscribe = onSnapshot(queryAttendance, (snapshot) => {
+      const attendedList = snapshot.docs.map((doc) => {
+        return {
+          name: studentInfoList.find(
+            (student) => student.id === doc.data().studentID
+          ).name,
+          attended: doc.data().attended,
+        };
       });
-      const querySchedule = query(
-        collection(db, "schedule"),
-        where("courseID", "==", courseCode),
-        where("date", "==", currentDay)
-      );
-      onSnapshot(querySchedule, (snapshot) => {
-        let scheduleID = "";
-        if (snapshot.empty) {
-          console.log("No matching documents.");
-          return;
-        }
-        snapshot.docs.forEach((doc) => {
-          scheduleID = doc.id;
-        });
-
-        if (scheduleID) {
-          const attendanceRef = collection(db, "attendance");
-          const attendancePromises = studentListID.map((student) => {
-            return new Promise((resolve) => {
-              const attendanceQuery = query(
-                attendanceRef,
-                where("studentID", "==", student.id),
-                where("courseID", "==", courseCode),
-                where("scheduleID", "==", scheduleID)
-              );
-
-              onSnapshot(attendanceQuery, (attendanceSnap) => {
-                let attended = "Absent";
-                attendanceSnap.forEach((doc) => {
-                  attended = doc.data().attended;
-                });
-                resolve({ ...student, attended: attended });
-              });
-            });
-          });
-
-          Promise.all(attendancePromises).then((attendanceList) => {
-            setAttendedList(attendanceList);
-          });
-        } else {
-          setAttendedList([]);
-        }
-      });
+      setAttendedList(attendedList);
     });
-    return () => {
-      unsubscribeAttendance();
-    };
-  }, [studentList, courseCode, currentDay]);
+    return () => unsubscribe();
+  }, [courseCode, scheduleID, studentInfoList]);
+
+  const sortedAttendedList = useMemo(() => {
+    return [...attendedList].sort((a, b) => a.name.localeCompare(b.name));
+  }, [attendedList]);
 
   return (
     <div className="container mx-auto mt-8 overflow-scroll">
@@ -102,8 +95,8 @@ export default memo(function LecturerDetailAttendanceDatePage() {
             {new Date(convertDateFormat(currentDay)) >=
               new Date(convertDateFormat(startDay)) &&
             currentDay &&
-            attendedList ? (
-              attendedList.map((student, index) => (
+            sortedAttendedList ? (
+              sortedAttendedList.map((student, index) => (
                 <tr key={index}>
                   <td className="py-2 px-4 border-b text-center">
                     {index + 1}

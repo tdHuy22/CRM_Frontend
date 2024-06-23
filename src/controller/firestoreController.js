@@ -788,6 +788,43 @@ async function doGetScheduleListFromCourseID(courseID) {
   return scheduleList;
 }
 
+async function doGetStudentInfoListLecturer(studentIDList) {
+  if (!studentIDList || studentIDList.length === 0) {
+    console.log("No student");
+    return [];
+  }
+  const studentRef = collection(db, "student");
+  const studentQuery = query(
+    studentRef,
+    where(documentId(), "in", studentIDList)
+  );
+  const studentSnap = await getDocs(studentQuery);
+  let studentList = [];
+  studentSnap.forEach((doc) => {
+    studentList.push({ id: doc.id, name: doc.data().name });
+  });
+  return studentList;
+}
+
+async function doGetScheduleIDLecturer(courseID, date) {
+  if (!courseID || !date) {
+    console.log("No courseID or date");
+    return null;
+  }
+  const scheduleRef = collection(db, "schedule");
+  const scheduleQuery = query(
+    scheduleRef,
+    where("courseID", "==", courseID),
+    where("date", "==", date)
+  );
+  const scheduleSnap = await getDocs(scheduleQuery);
+  let scheduleID = "";
+  scheduleSnap.forEach((doc) => {
+    scheduleID = doc.id;
+  });
+  return scheduleID;
+}
+
 export {
   getStudentCount,
   getAttendedStudentCountToday,
@@ -827,4 +864,6 @@ export {
   doUpdateCourseStudentList,
   doGetAttendedListOfDate,
   doGetScheduleListFromCourseID,
+  doGetStudentInfoListLecturer,
+  doGetScheduleIDLecturer,
 };
